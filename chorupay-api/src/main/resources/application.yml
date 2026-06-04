@@ -1,0 +1,66 @@
+# Chorupay - 애플리케이션 설정
+spring:
+  application:
+    name: chorupay
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:chorupay}
+    username: ${DB_USER:chorupay}
+    password: ${DB_PASSWORD:chorupay}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # 고동시성 대비 커넥션 풀 - 분산락으로 직렬화되므로 과도한 풀은 불필요
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 3000   # Fast-Fail: 커넥션 대기 3초 초과 시 실패
+
+  jpa:
+    hibernate:
+      # 운영에서는 validate/none + Flyway 마이그레이션 권장. 로컬 실험 편의를 위해 update.
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false          # OSIV 비활성화 - 트랜잭션 경계 명확화 & 커넥션 점유 최소화
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+
+# Chorupay 커스텀 설정 (인프라/리미터)
+chorupay:
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 0
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  outbox:
+    poll-interval-ms: 1000       # Outbox 스케줄러 폴링 주기
+  rate-limit:
+    capacity: 50                 # 버스트 한도 (클라이언트당)
+    refill-per-second: 25        # 지속 처리율 (초당)
+
+# 모니터링
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+server:
+  port: ${SERVER_PORT:8080}
+  # 대규모 트래픽 시 스레드/커넥션 보호
+  tomcat:
+    threads:
+      max: 200
+    accept-count: 100
+    connection-timeout: 3000
+
+logging:
+  level:
+    com.chorupay: ${LOG_LEVEL:INFO}
